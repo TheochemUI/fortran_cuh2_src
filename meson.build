@@ -40,3 +40,8 @@ cuh2 = library('fortcuh2',
            dependencies: _deps,
            cpp_args: _args,
            install : true)
+_linkto += cuh2
+
+fortcuh2_dep = declare_dependency(include_directories: _incdirs,
+                                  link_with: _linkto,
+                                  dependencies: _deps)
