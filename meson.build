@@ -1,47 +1,47 @@
 project('fortcuh2', 'fortran',
-  version : '0.0.1',
+  version : '0.0.2',
   default_options : ['warning_level=3',
-                     'cpp_std=c++20',
                      'debug=true',
                      'buildtype=debug'])
 
-# Add C++ compiler options
-_args = [] # Extra arguments
+# Add compiler options
+_fargs = [] # Extra arguments
 _deps = [] # Dependencies
 _linkto = [] # All the sub-libraries
 _incdirs = [] # All the includes
 
-add_languages('c', required: true)
-cc = meson.get_compiler('c')
 # Platform detection
+fc = meson.get_compiler('fortran')
 host_system = host_machine.system()
 is_windows = host_system == 'windows'
-is_mingw = is_windows and cc.get_id() == 'gcc'
+is_mingw = is_windows and fc.get_id() == 'gcc'
 
 # Conditional arguments
-if host_system == 'linux'
-  _args += '-Wno-return-type'
-  _args += '-Wno-switch'
-  _args += '-Wno-unused-variable'
-  _args += '-Wno-unused-const-variable'
-endif
+_fargs += fc.get_supported_arguments([
+  '-Wno-return-type',
+  '-Wno-unused-variable',
+  '-fimplicit-none',
+])
 
-cpu_family = host_machine.cpu_family()
-
-if is_mingw
-  # For mingw-w64, don't use LTO
-  add_project_arguments('-fno-use-linker-plugin', language: ['c', 'cpp'])
-endif
 
 # --------------------- Project
 cuh2 = library('fortcuh2',
-           'eam_isoc.f90',
-           'eamroutines.f90',
-           dependencies: _deps,
-           cpp_args: _args,
-           install : true)
+               'eam_dat.f90',
+               'eamroutines.f90',
+               'eam_isoc.f90',
+               dependencies: _deps,
+               fortran_args : _fargs,
+               install : true)
 _linkto += cuh2
 
 fortcuh2_dep = declare_dependency(include_directories: _incdirs,
                                   link_with: _linkto,
                                   dependencies: _deps)
+
+if (not meson.is_subproject())
+
+  cuh2exec = executable('tmp_run', 'main.f90',
+                       dependencies: fortcuh2_dep,
+                       fortran_args: _fargs)
+
+endif
