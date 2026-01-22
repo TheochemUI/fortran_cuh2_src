@@ -1,0 +1,94 @@
+#+TITLE: fortcuh2: Copper-Hydrogen EAM Potential
+#+AUTHOR: eOn Development Team
+#+VERSION: 0.0.2
+
+* Introduction
+This repository contains the Fortran source for a Copper-Hydrogen potential from
+the Jonsson group, extracted from [[https://eondocs.org][eOn]].
+
+It implements the Embedded Atom Method (EAM) for physical chemistry simulations.
+The project provides C-bindings for integration into broader simulation
+packages.
+
+* Integration Instructions
+
+** ~meson~ subproject
+To include this potential in a Meson project, create =subprojects/fortcuh2.wrap=:
+
+#+BEGIN_SRC ini
+[wrap-git]
+directory = fortcuh2
+url = https://github.com/TheochemUI/fortran_cuh2_src.git
+revision = v0.0.2
+#+END_SRC
+
+Then, add these lines to your =meson.build= to link the dependency:
+
+#+BEGIN_SRC meson
+# --------------------- Subprojects
+fortcuh2_proj = subproject('fortcuh2')
+fortcuh2_dep = fortcuh2_proj.get_variable('fortcuh2_dep')
+_deps += [fortcuh2_dep]
+#+END_SRC
+
+
+See [[https://github.com/TheochemUI/potlib/][potlib]] as an example.
+
+** ~CMake~
+For ~CMake~ projects, use the following pattern in your =CMakeLists.txt=:
+
+#+BEGIN_SRC cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    fortcuh2
+    GIT_REPOSITORY https://github.com/TheochemUI/fortran_cuh2_src.git
+    GIT_TAG v0.0.2
+)
+
+FetchContent_MakeAvailable(fortcuh2)
+
+# Link to your application
+target_link_libraries(your_target PRIVATE fortcuh2)
+#+END_SRC
+
+* Development and Testing
+The project provides a test runner (=tmp_run=) that processes =tmp.con= to
+compute energy and forces.
+
+** System
+The simplest setup for this project:
+#+begin_src bash
+gfortran eamroutines.f90 eam_dat.f90 eam_isoc.f90 main.f90 -o cuh2f
+./cuh2f
+❯ ./cuh2f 
+ Energy   -697.31345026617748     
+ Max Force  0.20293019483774868   
+#+end_src
+** ~meson~
+#+begin_src bash
+meson setup bbdir
+meson compile -C bbdir
+❯ ./bbdir/tmp_run
+ Energy   -697.31345026617748     
+ Max Force  0.20293019483774868 
+#+end_src
+** ~cmake~
+#+begin_src bash
+cmake -S . -B build \
+      -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+❯ ./build/tmp_run
+ Energy   -697.31345026617748     
+ Max Force  0.20293019483774868 
+#+end_src
+** File I/O integrations
+By default all the executables will generate an ~energy.out~ and a ~forces.out~ file:
+#+begin_src bash
+cat energy.out
+-697.31345026617748
+cat forces.out
+# too long
+#+end_src
+* License
+This software carries the BSD 3-Clause License.
