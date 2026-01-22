@@ -1,0 +1,50 @@
+name: CI Verification
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+on: [push, pull_request]
+
+jobs:
+  test-fortcuh2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran meson ninja-build cmake
+
+      - name: Verify Raw GFortran Build
+        run: |
+          gfortran eam_dat.f90 eamroutines.f90 eam_isoc.f90 main.f90 -o cuh2f
+          ./cuh2f > output_raw.txt
+          grep -q -- "-697.31345026617748" output_raw.txt
+          grep -q "0.20293019483774868" output_raw.txt
+          test -f energy.out
+          test -f forces.out
+
+      - name: Verify Meson Build
+        run: |
+          meson setup bbdir
+          meson compile -C bbdir
+          ./bbdir/tmp_run > output_meson.txt
+          grep -q -- "-697.31345026617748" output_meson.txt
+          grep -q "0.20293019483774868" output_meson.txt
+
+      - name: Verify CMake Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+          ./build/tmp_run > output_cmake.txt
+          grep -q -- "-697.31345026617748" output_cmake.txt
+          grep -q "0.20293019483774868" output_cmake.txt
+
+      - name: Verify File I/O Integrations
+        run: |
+          # The values in energy.out should match the expected potential energy
+          if [[ $(cat energy.out | tr -d ' ') != "-697.31345026617748" ]]; then
+            echo "Energy file verification failed"
+            exit 1
+          fi

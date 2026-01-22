@@ -1,0 +1,62 @@
+name: Downstream Integration Tests
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+on: [push, pull_request]
+
+jobs:
+  test-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          path: fortcuh2-src
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran meson ninja-build cmake
+
+      - name: Test CMake FetchContent
+        run: |
+          mkdir cmake-test && cd cmake-test
+          cat << 'EOF' > CMakeLists.txt
+          cmake_minimum_required(VERSION 3.15)
+          project(downstream_test LANGUAGES Fortran)
+          include(FetchContent)
+          FetchContent_Declare(
+            fortcuh2
+            SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../fortcuh2-src
+          )
+          FetchContent_MakeAvailable(fortcuh2)
+          add_executable(app main.f90)
+          target_link_libraries(app PRIVATE fortcuh2)
+          EOF
+          cp ../fortcuh2-src/main.f90 .
+          cp ../fortcuh2-src/tmp.con .
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          cp tmp.con build/
+          cd build && ./app | grep -q "Energy"
+
+      - name: Test Meson Subproject
+        run: |
+          mkdir meson-test && cd meson-test
+          mkdir subprojects
+          # Link the current source as the subproject directory
+          ln -s ../../fortcuh2-src subprojects/fortcuh2
+
+          cat << 'EOF' > meson.build
+          project('downstream_test', 'fortran')
+          fortcuh2_proj = subproject('fortcuh2')
+          fortcuh2_dep = fortcuh2_proj.get_variable('fortcuh2_dep')
+          executable('app', 'main.f90', dependencies: [fortcuh2_dep])
+          EOF
+
+          cp ../fortcuh2-src/main.f90 .
+          cp ../fortcuh2-src/tmp.con .
+          meson setup bbdir
+          meson compile -C bbdir
+          cp tmp.con bbdir/
+          ./bbdir/app | grep -q "Energy"
