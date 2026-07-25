@@ -1,6 +1,6 @@
 #+TITLE: fortcuh2: Copper-Hydrogen EAM Potential
 #+AUTHOR: eOn Development Team
-#+VERSION: 0.0.2
+#+VERSION: 0.1.0
 
 * Introduction
 This repository contains the Fortran source for a Copper-Hydrogen potential from
@@ -9,6 +9,10 @@ the Jonsson group, extracted from [[https://eondocs.org][eOn]].
 It implements the Embedded Atom Method (EAM) for physical chemistry simulations.
 The project provides C-bindings for integration into broader simulation
 packages.
+
+Pair candidates come from [[https://github.com/Luthaf/vesin][vesin]], vendored under =vesin/= as a single C++
+translation unit plus its Fortran interface. Building therefore needs a C++
+compiler alongside the Fortran one.
 
 * Integration Instructions
 
@@ -19,7 +23,7 @@ To include this potential in a Meson project, create =subprojects/fortcuh2.wrap=
 [wrap-git]
 directory = fortcuh2
 url = https://github.com/TheochemUI/fortran_cuh2_src.git
-revision = v0.0.2
+revision = v0.1.0
 #+END_SRC
 
 Then, add these lines to your =meson.build= to link the dependency:
@@ -43,7 +47,7 @@ include(FetchContent)
 FetchContent_Declare(
     fortcuh2
     GIT_REPOSITORY https://github.com/TheochemUI/fortran_cuh2_src.git
-    GIT_TAG v0.0.2
+    GIT_TAG v0.1.0
 )
 
 FetchContent_MakeAvailable(fortcuh2)
@@ -57,13 +61,17 @@ The project provides a test runner (=tmp_run=) that processes =tmp.con= to
 compute energy and forces.
 
 ** System
-The simplest setup for this project:
+Compiler invocations without a build system, vesin first so its module files
+exist before the potential sources use them:
 #+begin_src bash
-gfortran eamroutines.f90 eam_dat.f90 eam_isoc.f90 main.f90 -o cuh2f
+g++ -c -Ivesin vesin/vesin-single-build.cpp -o vesin-single-build.o
+gfortran vesin/fortran/cdef.f90 vesin/fortran/vesin.f90 \
+         eam_dat.f90 vesin_cuh2.f90 eamroutines.f90 eam_isoc.f90 main.f90 \
+         vesin-single-build.o -lstdc++ -lpthread -o cuh2f
 ./cuh2f
-❯ ./cuh2f 
- Energy   -697.31345026617748     
- Max Force  0.20293019483774868   
+❯ ./cuh2f
+ Energy   -697.31345026617748
+ Max Force  0.20293019483774868
 #+end_src
 ** ~meson~
 #+begin_src bash
