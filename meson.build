@@ -66,16 +66,32 @@ vesin_f_dep = declare_dependency(
 _deps += [vesin_f_dep]
 
 # --------------------- Project
-cuh2 = library(
-    'fortcuh2',
+# Darwin: a gfortran-only dylib misses libc/libSystem (_exp, _memcpy,
+# _memset); shared-lib links are flaky on conda macOS runners. Build static
+# there so the final C++/C executable resolves system symbols.
+_cuh2_sources = [
     'eam_dat.f90',
     'vesin_cuh2.f90',
     'eamroutines.f90',
     'eam_isoc.f90',
-    dependencies: _deps,
-    fortran_args: _fargs,
-    install: true,
-)
+]
+if host_system == 'darwin'
+    cuh2 = static_library(
+        'fortcuh2',
+        _cuh2_sources,
+        dependencies: _deps,
+        fortran_args: _fargs,
+        install: true,
+    )
+else
+    cuh2 = library(
+        'fortcuh2',
+        _cuh2_sources,
+        dependencies: _deps,
+        fortran_args: _fargs,
+        install: true,
+    )
+endif
 _linkto += cuh2
 
 fortcuh2_dep = declare_dependency(
